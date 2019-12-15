@@ -1,5 +1,6 @@
 //
 // Created by TYTY on 2019-05-19 019.
+// Modify by LD on 2019-12-08.
 //
 
 #include <boost/asio.hpp>
@@ -9,11 +10,17 @@
 #include <utility>
 #include <string>
 #include <functional>
+#include <chrono>
 
 #include "./third_party/cxxopts/include/cxxopts.hpp"
 
 #include "file.h"
 #include "protocol.h"
+
+// Session life time (minutes)
+std::chrono::minutes life_time(1440);
+// GC sleep time (minutes)
+std::chrono::minutes sleep_time(30);
 
 INITIALIZE_EASYLOGGINGPP
 
@@ -26,7 +33,7 @@ INITIALIZE_EASYLOGGINGPP
  * Client: File Negotiation
  * Server: File Negotiation
  * Client: Start Transfering file
- * Cilent: Finish Transfering file
+ * Client: Finish Transfering file
  * Server: Close file and clean
  */
 
@@ -133,7 +140,7 @@ class Thread : public std::enable_shared_from_this<Thread> {
 
   /// \brief constructor
   /// \note this constructor simply initialize its members. for detailed
-  ///       infomation, see class's datamenber explanation.
+  ///       information, see class's datamember explanation.
   Thread(
       tcp::socket _socket,
       protocol::AESEncrypter _enc,
@@ -200,6 +207,8 @@ class Thread : public std::enable_shared_from_this<Thread> {
 ///             use atomic object to ensure no duplicate count
 /// \datamember int result
 ///             store the result of verify function
+/// \datamember std::chrono::steady_clock::time_point start_time
+///             count life time
 class Session : public std::enable_shared_from_this<Session> {
  public:
   enum s_code { NOTSET, NEGOTIATED, FINISHED };
@@ -215,6 +224,7 @@ class Session : public std::enable_shared_from_this<Session> {
   uint32_t piece_size;
   std::atomic_int number = 0;
   int result;
+  std::chrono::steady_clock::time_point start_time;
  public:
   /// \brief emulator to the boost::asio read function
   /// \note for detailed info, see Thread::_read
@@ -225,7 +235,7 @@ class Session : public std::enable_shared_from_this<Session> {
   }
   /// \brief constructor
   /// \note this constructor simply initialize its members. for detailed
-  ///       infomation, see class's datamenber explanation.
+  ///       information, see class's datamember explanation.
   Session(
       tcp::socket _socket,
       protocol::AESEncrypter _enc,
@@ -243,13 +253,16 @@ class Session : public std::enable_shared_from_this<Session> {
     // works properly
     boost::asio::ip::tcp::no_delay option(true);
     socket_.set_option(option);
+
+    //time start
+    start_time = std::chrono::steady_clock::now();
   }
   /// \brief these four step split the whole handshake and negotiation
   ///         process. for works of each function, see the comment above
   ///         declaration and in the function.
 
   /// read data: Server Hello
-  /// send data: Cilent Hello
+  /// send data: Client Hello
   void step1() {
     /// read Server Hello part
     result = protocol::server_hello_verify(dec, _tmp);
@@ -259,7 +272,7 @@ class Session : public std::enable_shared_from_this<Session> {
       return;
     }
 
-    /// send Cilent Hello part
+    /// send Client Hello part
     async_write(socket_, buffer(protocol::build_msg(
         protocol::client_hello_build(enc, result, session))),
                 [this](boost::system::error_code ec, std::size_t) {
@@ -317,9 +330,9 @@ class Session : public std::enable_shared_from_this<Session> {
                                       path);
     // move shared_ptr to class member to control life cycle
     try {
-//      std::shared_ptr<file::file_writer>
-//          _tf(new file::file_writer(path.c_str(), file_s));
-      _f = std::make_shared<file::file_writer>(path, file_s);
+      //std::shared_ptr<file::file_writer>
+      //        _tf(new file::file_writer(path.c_str(), file_s));
+      _f = std::make_shared<file::file_writer>(path,file_s);
       result = (int) !(_f->ok);
     }
     catch (file::NoEnoughSpace &e) {
@@ -361,7 +374,7 @@ class Session : public std::enable_shared_from_this<Session> {
   }
   /// \brief thread finish notify
   /// \detail after each thread finished, this function will be called once to
-  ///         infrom the Session. when count go back to zero, file will be
+  ///         inform the Session. when count go back to zero, file will be
   ///         closed and Session will be marked FINISHED.
   void finish_thread(int _number) {
     --number;
@@ -369,6 +382,13 @@ class Session : public std::enable_shared_from_this<Session> {
       status = FINISHED;
       _f->close();
     }
+  }
+  /// \brief Session time out or not
+  bool alife(){
+    std::chrono::steady_clock::time_point _now = std::chrono::steady_clock::now();
+    std::chrono::duration<long long int> _lifed_time =
+        std::chrono::duration_cast<std::chrono::duration<long long int>>(_now - start_time);
+    return _lifed_time < life_time;
   }
 };
 
@@ -413,7 +433,7 @@ class Acceptor : public std::enable_shared_from_this<Acceptor> {
  public:
   /// \brief constructor
   /// \note this constructor simply initialize its members. for detailed
-  ///       infomation, see class's datamenber explanation.
+  ///       information, see class's datamember explanation.
   explicit Acceptor(
       boost::asio::io_context &io_context,
       int port,
@@ -438,16 +458,16 @@ class Acceptor : public std::enable_shared_from_this<Acceptor> {
   };
   /// \brief this function recursive infinitely to keep accepting connection.
   void do_accept() {
-    // first clean up finished Sessions
-    std::vector<std::string> _tmp;
-    for (auto const &_s : s_list) {
-      if (children[_s]->status == Session::FINISHED) {
-        children.erase(_s);
-      } else {
-        _tmp.push_back(_s);
-      }
-    }
-    s_list = _tmp;
+//     first clean up finished Sessions
+//    std::vector<std::string> _tmp;
+//    for (auto const &_s : s_list) {
+//      if (children[_s]->status == Session::FINISHED) {
+//        children.erase(_s);
+//      } else {
+//        _tmp.push_back(_s);
+//      }
+//    }
+//    s_list = _tmp;
 
     acceptor_.async_accept(
         [this](boost::system::error_code ec, tcp::socket socket) {
@@ -498,12 +518,29 @@ class Acceptor : public std::enable_shared_from_this<Acceptor> {
           }
         });
   }
+
+  /// \brief this function delete finished sessions or timeout sessions
+  void gc(boost::asio::steady_timer* t){
+    int count = 0;
+    std::vector<std::string> _tmp;
+    for (auto const &_s : s_list) {
+      if (children[_s]->status == Session::FINISHED or children[_s]->alife()) {
+        children.erase(_s);
+        ++count;
+      } else {
+        _tmp.push_back(_s);
+      }
+    }
+    s_list = _tmp;
+    LOG(INFO) << "GC: " << count << " session(s) deleted.";
+    t->expires_after(sleep_time);
+    t->async_wait(boost::bind(&Acceptor::gc, this, t));
+  }
 };
 
 int main(int argc, char *argv[]) {
-
   // arguments reader
-  cxxopts::Options options("FileUploader-Client", "Uploader client.");
+  cxxopts::Options options("FileUploader-Server", "Uploader server.");
 
   options.add_options()
       ("p,port", "Port number to bind", cxxopts::value<int>())
@@ -541,9 +578,11 @@ int main(int argc, char *argv[]) {
   protocol::AESDecrypter dec(key);
 
   boost::asio::io_context io_context;
+  boost::asio::steady_timer t(io_context, sleep_time);
 
   Acceptor a(io_context, port, enc, dec);
 
+  t.async_wait(boost::bind(&Acceptor::gc, &a, &t));
   a.do_accept();
 
   io_context.run();
