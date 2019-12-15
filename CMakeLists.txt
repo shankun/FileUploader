@@ -2,6 +2,7 @@ cmake_minimum_required(VERSION 3.1)
 project(FileUploader)
 
 set(CMAKE_CXX_STANDARD 17)
+FIND_PACKAGE(Boost COMPONENTS random system REQUIRED)
 set(Boost_USE_STATIC_LIBS ON)
 # switch it to on to compile test code
 set(BUILD_TEST OFF)
@@ -52,7 +53,8 @@ if(MINGW)
     set(NEED_LIBS
             ws2_32.lib
 #            stdc++fs
-            boost_random-mt
+            #boost_random-mt
+            ${Boost_LIBRARIES}
             ${cryptopplib}
             )
 
@@ -60,8 +62,9 @@ elseif(${CMAKE_SYSTEM_NAME} MATCHES "Linux")
     set(NEED_LIBS
             stdc++fs
             pthread
-            boost_random
-            boost_system
+            #boost_random
+            #boost_system
+            ${Boost_LIBRARIES}
             ${cryptopplib}
             )
 
