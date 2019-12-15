@@ -4,6 +4,14 @@ project(FileUploader)
 set(CMAKE_CXX_STANDARD 17)
 FIND_PACKAGE(Boost COMPONENTS random system REQUIRED)
 set(Boost_USE_STATIC_LIBS ON)
+include_directories(${Boost_INCLUDE_DIRS})
+
+find_package(PkgConfig REQUIRED)
+pkg_check_modules(GTK3 REQUIRED gtk+-3.0)
+
+include_directories(${GTK3_INCLUDE_DIRS})
+link_directories(${GTK3_LIBRARY_DIRS})
+
 # switch it to on to compile test code
 set(BUILD_TEST OFF)
 
@@ -102,6 +110,9 @@ add_executable(server server.cpp
 add_executable(client client.cpp
         ${NEED_SOURCES})
 
+add_executable(client_gui client_gui.cpp
+        ${NEED_SOURCES})
+
 if(BUILD_TEST)
     add_executable(test_file
             debug_program/test_file.cpp
@@ -121,6 +132,7 @@ endif(BUILD_TEST)
 
 # set need libraries
 target_link_libraries(client ${NEED_LIBS})
+target_link_libraries(client_gui ${NEED_LIBS} ${GTK3_LINK_LIBRARIES})
 
 if(WIN32)
     target_link_libraries(server ${NEED_LIBS} wsock32)
@@ -128,9 +140,10 @@ else()
     target_link_libraries(server ${NEED_LIBS})
 endif(WIN32)
 
-set(CMAKE_EXE_LINKER_FLAGS " -static")
+#set(CMAKE_EXE_LINKER_FLAGS " -static")
 target_link_libraries(client -static-libgcc -static-libstdc++)
 target_link_libraries(server -static-libgcc -static-libstdc++)
+target_link_libraries(client_gui -static-libgcc -static-libstdc++)
 
 if(BUILD_TEST)
     if(WIN32)
