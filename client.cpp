@@ -332,8 +332,8 @@ int main(int argc, char *argv[]) {
       ("p,port", "Port number to connect", cxxopts::value<int>())
       ("k,key", "Encrypt key to communicate", cxxopts::value<std::string>())
       ("f,file", "File name", cxxopts::value<std::string>())
-      ("t,thread", "Threads to connect", cxxopts::value<int>())
-      ("s,size", "Piece size(byte) to split file in", cxxopts::value<int>());
+      ("t,thread", "Threads to connect", cxxopts::value<int>()->default_value("1"))
+      ("s,size", "Piece size(byte) to split file in", cxxopts::value<int>()->default_value("65535"));
 
   std::string host;
   int port;
@@ -341,18 +341,48 @@ int main(int argc, char *argv[]) {
   std::string file_name;
   int thread_num;
   int piece_size;
-
-  auto result = options.parse(argc, argv);
+  cxxopts::ParseResult result;
+  const std::string prompt{"\nUsage: fileUploader -h IP -p PORT -k KEY -f PATH [-t THREADs -s PIECESIZE]"};
 
   // different logic to required and optional parameters
   try {
+    result = options.parse(argc, argv);
     host = result["h"].as<std::string>();
     port = result["p"].as<int>();
     key = result["k"].as<std::string>();
     file_name = result["f"].as<std::string>();
   }
-  catch (const cxxopts::OptionException &e) {
-    std::cerr << "Incorrect parameters" << std::endl;
+  catch (const cxxopts::exceptions::option_has_no_value &e)
+  {
+    const std::string reason{e.what()};
+    const std::string sizeKwd{cxxopts::LQUOTE + "size" + cxxopts::RQUOTE};
+    const std::string thrdKwd{cxxopts::LQUOTE + "thread" + cxxopts::RQUOTE};
+    // 可选参数
+    if (reason.npos == reason.find(sizeKwd) && 
+        reason.find(thrdKwd) == reason.npos)
+    {
+      std::cerr << e.what() << prompt << std::endl;
+      exit(1);
+    }
+  }
+  catch (const cxxopts::exceptions::incorrect_argument_type &e)
+  {
+    std::cerr << e.what() << prompt << std::endl;
+    exit(1);
+  }
+  catch (const cxxopts::exceptions::no_such_option &e)
+  {
+    std::cerr << e.what() << prompt << std::endl;
+    exit(1);
+  }
+  catch (const cxxopts::exceptions::invalid_option_format &e)
+  {
+    std::cerr << e.what() << prompt << std::endl;
+    exit(1);
+  }
+  catch (const cxxopts::exceptions::exception &e) {
+    std::cerr << "Incorrect parameters. " << e.what() 
+      << prompt << std::endl;
     exit(1);
   }
   catch (const std::domain_error &e) {

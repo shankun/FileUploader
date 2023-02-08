@@ -4,7 +4,7 @@
 //
 
 #include <boost/asio.hpp>
-#include <boost/bind.hpp>
+#include <boost/bind/bind.hpp>
 #include <iostream>
 #include <memory>
 #include <utility>
@@ -39,6 +39,7 @@ INITIALIZE_EASYLOGGINGPP
 
 using boost::asio::ip::tcp;
 using boost::asio::buffer;
+using namespace boost::placeholders;
 
 protocol::Randomsession sess_gen;
 
@@ -218,6 +219,7 @@ class Session : public std::enable_shared_from_this<Session> {
   tcp::socket socket_;
   protocol::AESEncrypter enc;
   protocol::AESDecrypter dec;
+  std::string destination;
   std::shared_ptr<file::file_writer> _f;
   std::unordered_map<int, std::shared_ptr<Thread>> children;
   std::string _tmp;
@@ -240,11 +242,13 @@ class Session : public std::enable_shared_from_this<Session> {
       tcp::socket _socket,
       protocol::AESEncrypter _enc,
       protocol::AESDecrypter _dec,
+      const std::string& _dest,
       std::string &msg
   ) :
       socket_(std::move(_socket)),
       enc(_enc),
       dec(_dec),
+      destination(_dest),
       _tmp(msg) {
     status = NOTSET;
     session = sess_gen.session(32);
@@ -330,9 +334,10 @@ class Session : public std::enable_shared_from_this<Session> {
                                       path);
     // move shared_ptr to class member to control life cycle
     try {
-      //std::shared_ptr<file::file_writer>
-      //        _tf(new file::file_writer(path.c_str(), file_s));
-      _f = std::make_shared<file::file_writer>(path,file_s);
+      std::filesystem::path filePath{path};
+      std::filesystem::path fullPath{destination};
+      fullPath /= filePath.filename();
+      _f = std::make_shared<file::file_writer>(fullPath, file_s);
       result = (int) !(_f->ok);
     }
     catch (file::NoEnoughSpace &e) {
@@ -427,6 +432,7 @@ class Acceptor : public std::enable_shared_from_this<Acceptor> {
  private:
   protocol::AESEncrypter enc;
   protocol::AESDecrypter dec;
+  std::string dest;
   tcp::acceptor acceptor_;
   std::unordered_map<std::string, std::shared_ptr<Session>> children;
   std::vector<std::string> s_list;
@@ -438,11 +444,13 @@ class Acceptor : public std::enable_shared_from_this<Acceptor> {
       boost::asio::io_context &io_context,
       int port,
       protocol::AESEncrypter &_enc,
-      protocol::AESDecrypter &_dec) :
+      protocol::AESDecrypter &_dec,
+      const std::string& _dest) :
       // listen to 0.0.0.0 (Any address) with specific port
       acceptor_(io_context, tcp::endpoint(tcp::v6(), port)),
       enc(_enc),
-      dec(_dec) {}
+      dec(_dec),
+      dest(_dest) {}
   /// \brief @static encapsulate boost::asio read function
   /// \detail encapsulate the boost::asio's read function and reduce parameter
   ///         count to make the function signature the same as read_msg series
@@ -486,7 +494,7 @@ class Acceptor : public std::enable_shared_from_this<Acceptor> {
               LOG(INFO) << "Receive new client connection.";
               // session handler
               std::shared_ptr<Session>
-                  _s(new Session(std::move(socket), enc, dec, _msg));
+                  _s(new Session(std::move(socket), enc, dec, dest, _msg));
               s_list.push_back(_s->session);
               _s->step1();
               children[_s->session] = std::move(_s);
@@ -544,23 +552,51 @@ int main(int argc, char *argv[]) {
 
   options.add_options()
       ("p,port", "Port number to bind", cxxopts::value<int>())
-      ("k,key", "Encrypt key to communicate", cxxopts::value<std::string>());
+      ("k,key", "Encrypt key to communicate", cxxopts::value<std::string>())
+      ("d,dest", "Path to save file in", cxxopts::value<std::string>());
 
   int port;
   std::string key;
+  std::string dest;
 
-  auto result = options.parse(argc, argv);
-
+  const std::string prompt{"\nUsage: fileUploader-Server -p PORT -k KEY -d PATH"};
   try {
+    auto result = options.parse(argc, argv);
     port = result["p"].as<int>();
     key = result["k"].as<std::string>();
+    dest = result["d"].as<std::string>();
   }
-  catch (const cxxopts::OptionException &e) {
-    std::cerr << "Incorrect parameters" << std::endl;
+  catch (const cxxopts::exceptions::incorrect_argument_type &e)
+  {
+    std::cerr << e.what() << prompt << std::endl;
+    exit(1);
+  }
+  catch (const cxxopts::exceptions::no_such_option &e)
+  {
+    std::cerr << e.what() << prompt << std::endl;
+    exit(1);
+  }
+  catch (const cxxopts::exceptions::invalid_option_format &e)
+  {
+    std::cerr << e.what() << prompt << std::endl;
+    exit(1);
+  }
+  catch (const cxxopts::exceptions::exception &e) {
+    std::cerr << "Incorrect parameters. " << e.what() << prompt << std::endl;
     exit(1);
   }
   catch (const std::domain_error &e) {
-    std::cerr << "One or more required parameters not given" << std::endl;
+    std::cerr << "One or more required parameters not given" <<
+      prompt << std::endl;
+    exit(1);
+  }
+
+  std::filesystem::path path2Save{dest};
+  if (!std::filesystem::is_directory(path2Save) ||
+      !std::filesystem::exists(path2Save))
+  {
+    std::cerr << "-d parameter is not a valid directory\n" <<
+      prompt << std::endl;
     exit(1);
   }
 
@@ -580,7 +616,7 @@ int main(int argc, char *argv[]) {
   boost::asio::io_context io_context;
   boost::asio::steady_timer t(io_context, sleep_time);
 
-  Acceptor a(io_context, port, enc, dec);
+  Acceptor a(io_context, port, enc, dec, dest);
 
   t.async_wait(boost::bind(&Acceptor::gc, &a, &t));
   a.do_accept();

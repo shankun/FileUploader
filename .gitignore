@@ -37,7 +37,7 @@
 /cmake-build-*/
 /.idea/
 
-CMakeLists.txt.user
+build/
 CMakeCache.txt
 CMakeFiles
 CMakeScripts
