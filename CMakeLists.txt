@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.1)
+cmake_minimum_required(VERSION 3.19)
 project(FileUploader)
 
 set(CMAKE_CXX_STANDARD 17)
@@ -7,10 +7,10 @@ set(Boost_USE_STATIC_LIBS ON)
 include_directories(${Boost_INCLUDE_DIRS})
 
 find_package(PkgConfig REQUIRED)
-pkg_check_modules(GTK3 REQUIRED gtk+-3.0)
+pkg_check_modules(GTKMM REQUIRED gtkmm-4.0)
 
-include_directories(${GTK3_INCLUDE_DIRS})
-link_directories(${GTK3_LIBRARY_DIRS})
+include_directories(${GTKMM_INCLUDE_DIRS})
+link_directories(${GTKMM_LIBRARY_DIRS})
 
 # switch it to on to compile test code
 set(BUILD_TEST OFF)
@@ -110,8 +110,15 @@ add_executable(server server.cpp
 add_executable(client client.cpp
         ${NEED_SOURCES})
 
-add_executable(client_gui client_gui.cpp
+add_executable(client_gui client_gui.cpp 
         ${NEED_SOURCES})
+
+target_compile_options(client_gui
+    PRIVATE
+        -DGTKMM_DISABLE_DEPRECATED
+        -DGDKMM_DISABLE_DEPRECATED
+        -DGLIBMM_DISABLE_DEPRECATED
+        -DGIOMM_DISABLE_DEPRECATED)
 
 if(BUILD_TEST)
     add_executable(test_file
@@ -132,7 +139,7 @@ endif(BUILD_TEST)
 
 # set need libraries
 target_link_libraries(client ${NEED_LIBS})
-target_link_libraries(client_gui ${NEED_LIBS} ${GTK3_LINK_LIBRARIES})
+target_link_libraries(client_gui ${NEED_LIBS} ${GTKMM_LINK_LIBRARIES})
 
 if(WIN32)
     target_link_libraries(server ${NEED_LIBS} wsock32)

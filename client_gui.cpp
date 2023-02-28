@@ -1,16 +1,16 @@
 //
-// Created by LD on 2019-12-15.
+// Created by SK on 2023-2-27.
 //
 
-#include <gtk/gtk.h>
 #include <boost/asio.hpp>
 #include <string>
 #include <functional>
 #include <thread>
 #include <chrono>
-
+#include <iostream>
 #include "./third_party/cxxopts/include/cxxopts.hpp"
-
+#include "sender_dialog.h"
+#include <gtkmm/application.h>
 #include "file.h"
 #include "protocol.h"
 
@@ -325,114 +325,123 @@ void transfer(Uploader *ul) {
   delete[] _read_buf;
 }
 
-struct widgets {
-  GtkEntry *file_entry;
-  GtkEntry *host_entry;
-  GtkEntry *port_entry;
-  GtkEntry *key_entry;
-  GtkEntry *thread_entry;
-  GtkEntry *size_entry;
-  GtkWidget *ul_button;
-} d;
+SenderDialog::SenderDialog()
+: m_uploadButton("上传"),
+  m_fileButton("选择文件"),
+  m_hostLabel("IP地址:"),
+  m_portLabel("端口号:"),
+  m_keyLabel("密钥:"),
+  m_fileLabel("文件路径:"),
+  m_threadsLabel("线程数:"),
+  m_sizeLabel("切片大小:")
+{
+  set_title("上传文件");
+  set_default_size(370, 300);
+  //gtk_window_set_position(GTK_WINDOW (window), GTK_WIN_POS_CENTER); // deprecated
+  set_resizable(false);
+  m_grid.set_margin(12);
+  set_child(m_grid);
 
-/// \brief file_button's callback function, select file
-void select_file(GtkWidget *widget, gpointer *data) {
-  GtkFileChooserNative *file_chooser;
-  GtkFileChooserAction action = GTK_FILE_CHOOSER_ACTION_OPEN;
-  gint res;
-  GtkEntry *entry = (GtkEntry *) data;
-
-  file_chooser = gtk_file_chooser_native_new("选择文件",
-                                             NULL, action, "确定", "取消"
-    );
-  res = gtk_native_dialog_run(GTK_NATIVE_DIALOG(file_chooser));
-  if (res == GTK_RESPONSE_ACCEPT) {
-    char *filename;
-    GtkFileChooser *chooser = GTK_FILE_CHOOSER(file_chooser);
-    filename = gtk_file_chooser_get_filename(chooser);
-    gtk_entry_set_text(entry, filename);
-  }
+  activate();
 }
 
-/// \brief ul_button's callback function, do upload
-void upload(GtkWidget *widget, gpointer *data) {
+SenderDialog::~SenderDialog()
+{
+}
 
+/// \brief file_button's callback function, select file
+void SenderDialog::select_file() {
+  auto dialog = new Gtk::FileChooserDialog("选择文件",
+          Gtk::FileChooser::Action::OPEN);
+  dialog->set_transient_for(*this);
+  dialog->set_modal(true);
+  dialog->signal_response().connect(sigc::bind(
+    sigc::mem_fun(*this, &SenderDialog::on_file_dialog_response), dialog));
+
+  //Add response buttons to the dialog:
+  dialog->add_button("取消", Gtk::ResponseType::CANCEL);
+  dialog->add_button("打开", Gtk::ResponseType::OK);
+
+  //Add filters, so that only certain file types can be selected:
+  auto filter_any = Gtk::FileFilter::create();
+  filter_any->set_name("所有文件");
+  filter_any->add_pattern("*");
+  dialog->add_filter(filter_any);
+
+  //Show the dialog and wait for a user response:
+  dialog->show();
+}
+
+void SenderDialog::on_file_dialog_response(int response_id, Gtk::FileChooserDialog* dialog)
+{
+  //Handle the response:
+  switch (response_id)
+  {
+    case Gtk::ResponseType::OK:
+    {
+      // Notice that this is a std::string, not a Glib::ustring.
+      m_fileEntry.set_text(dialog->get_file()->get_path().c_str());
+      break;
+    }
+    case Gtk::ResponseType::CANCEL:
+    {
+      std::cout << "Cancel clicked." << std::endl;
+      break;
+    }
+    default:
+    {
+      std::cout << "Unexpected button clicked." << std::endl;
+      break;
+    }
+  }
+  delete dialog;
+}
+
+/// \brief m_uploadButton's callback function, do upload
+void SenderDialog::upload() {
   //time start
-  std::chrono::steady_clock::time_point  now = std::chrono::steady_clock::now();
+  std::chrono::steady_clock::time_point now = std::chrono::steady_clock::now();
 
-  widgets *d = (widgets *) data;
-  gtk_widget_set_sensitive(d->ul_button, FALSE);
-  const char *_filename = gtk_entry_get_text(d->file_entry);
-  const char *_host = gtk_entry_get_text(d->host_entry);
-  const char *_port = gtk_entry_get_text(d->port_entry);
-  const char *_key = gtk_entry_get_text(d->key_entry);
-  const char *_thread = gtk_entry_get_text(d->thread_entry);
-  const char *_size = gtk_entry_get_text(d->size_entry);
-
-  std::string filename(_filename);
-  std::string host(_host);
-  std::string key(_key);
-  int port = std::strtol(_port, nullptr, 10);
-  int thread = std::strtol(_thread, nullptr, 10);
-  int size = std::strtol(_size, nullptr, 10);
+  std::string filename(m_fileEntry.get_text().c_str());
+  std::string host(m_hostEntry.get_text().c_str());
+  std::string key(m_keyEntry.get_text().c_str());
+  int port = std::strtol(m_portEntry.get_text().c_str(), nullptr, 10);
+  int thread = std::strtol(m_threadsEntry.get_text().c_str(), nullptr, 10);
+  int size = std::strtol(m_sizeEntry.get_text().c_str(), nullptr, 10);
 
   std::regex ip_regex(
   "^((25[0-5]|2[0-4]\\d|[01]?\\d\\d?)\\.){3}(25[0-5]|2[0-4]\\d|[01]?\\d\\d?)$|^([\\da-fA-F]{1,4}:){6}((25[0-5]|2[0-4]\\d|[01]?\\d\\d?)\\.){3}(25[0-5]|2[0-4]\\d|[01]?\\d\\d?)$|^::([\\da-fA-F]{1,4}:){0,4}((25[0-5]|2[0-4]\\d|[01]?\\d\\d?)\\.){3}(25[0-5]|2[0-4]\\d|[01]?\\d\\d?)$|^([\\da-fA-F]{1,4}:):([\\da-fA-F]{1,4}:){0,3}((25[0-5]|2[0-4]\\d|[01]?\\d\\d?)\\.){3}(25[0-5]|2[0-4]\\d|[01]?\\d\\d?)$|^([\\da-fA-F]{1,4}:){2}:([\\da-fA-F]{1,4}:){0,2}((25[0-5]|2[0-4]\\d|[01]?\\d\\d?)\\.){3}(25[0-5]|2[0-4]\\d|[01]?\\d\\d?)$|^([\\da-fA-F]{1,4}:){3}:([\\da-fA-F]{1,4}:){0,1}((25[0-5]|2[0-4]\\d|[01]?\\d\\d?)\\.){3}(25[0-5]|2[0-4]\\d|[01]?\\d\\d?)$|^([\\da-fA-F]{1,4}:){4}:((25[0-5]|2[0-4]\\d|[01]?\\d\\d?)\\.){3}(25[0-5]|2[0-4]\\d|[01]?\\d\\d?)$|^([\\da-fA-F]{1,4}:){7}[\\da-fA-F]{1,4}$|^:((:[\\da-fA-F]{1,4}){1,6}|:)$|^[\\da-fA-F]{1,4}:((:[\\da-fA-F]{1,4}){1,5}|:)$|^([\\da-fA-F]{1,4}:){2}((:[\\da-fA-F]{1,4}){1,4}|:)$|^([\\da-fA-F]{1,4}:){3}((:[\\da-fA-F]{1,4}){1,3}|:)$|^([\\da-fA-F]{1,4}:){4}((:[\\da-fA-F]{1,4}){1,2}|:)$|^([\\da-fA-F]{1,4}:){5}:([\\da-fA-F]{1,4})?$|^([\\da-fA-F]{1,4}:){6}:$"
       );
 
   if (filename.empty() or host.empty() or key.empty()) {
-    GtkWidget *error_dialog;
-    error_dialog = gtk_message_dialog_new(NULL,
-                                          GTK_DIALOG_MODAL,
-                                          GTK_MESSAGE_INFO,
-                                          GTK_BUTTONS_OK,
-                                          "文件路径、IP地址或密钥不能为空！"
-    );
-    gtk_window_set_title(GTK_WINDOW (error_dialog), "错误提示");
-    gtk_dialog_run(GTK_DIALOG(error_dialog));
-    gtk_widget_destroy(error_dialog);
+    m_pMsgDlg.reset(new Gtk::MessageDialog(*this, "文件路径、IP地址或密钥不能为空！"));
+    m_pMsgDlg->set_modal(true);
+    m_pMsgDlg->set_title("错误提示");
+    m_pMsgDlg->show();
     return;
   }
 
   if (port == 0 or thread == 0 or size == 0) {
-    GtkWidget *error_dialog;
-    error_dialog = gtk_message_dialog_new(NULL,
-                                          GTK_DIALOG_MODAL,
-                                          GTK_MESSAGE_INFO,
-                                          GTK_BUTTONS_OK,
-                                          "端口号、线程数和切片大小必须是正整数！"
-    );
-    gtk_window_set_title(GTK_WINDOW (error_dialog), "参数错误");
-    gtk_dialog_run(GTK_DIALOG(error_dialog));
-    gtk_widget_destroy(error_dialog);
+    m_pMsgDlg.reset(new Gtk::MessageDialog(*this, "端口号、线程数和切片大小必须是正整数！"));
+    m_pMsgDlg->set_modal(true);
+    m_pMsgDlg->set_title("参数错误");
+    m_pMsgDlg->show();
     return;
   }
 
   if (!std::regex_match(host,ip_regex)) {
-    GtkWidget *error_dialog;
-    error_dialog = gtk_message_dialog_new(NULL,
-                                          GTK_DIALOG_MODAL,
-                                          GTK_MESSAGE_INFO,
-                                          GTK_BUTTONS_OK,
-                                          "IP地址格式错误！"
-    );
-    gtk_window_set_title(GTK_WINDOW (error_dialog), "参数错误");
-    gtk_dialog_run(GTK_DIALOG(error_dialog));
-    gtk_widget_destroy(error_dialog);
+    m_pMsgDlg.reset(new Gtk::MessageDialog(*this, "IP地址格式错误！"));
+    m_pMsgDlg->set_modal(true);
+    m_pMsgDlg->set_title("参数错误");
+    m_pMsgDlg->show();
     return;
   }
 
   if (port > 65536 or port < 0) {
-    GtkWidget *error_dialog;
-    error_dialog = gtk_message_dialog_new(NULL,
-                                          GTK_DIALOG_MODAL,
-                                          GTK_MESSAGE_INFO,
-                                          GTK_BUTTONS_OK,
-                                          "端口号必须在0到65536之间！"
-    );
-    gtk_window_set_title(GTK_WINDOW (error_dialog), "参数错误");
-    gtk_dialog_run(GTK_DIALOG(error_dialog));
-    gtk_widget_destroy(error_dialog);
+     m_pMsgDlg.reset(new Gtk::MessageDialog(*this, "端口号必须在0到65536之间！"));
+    m_pMsgDlg->set_modal(true);
+    m_pMsgDlg->set_title("参数错误");
+    m_pMsgDlg->show();
     return;
   }
 
@@ -475,16 +484,15 @@ void upload(GtkWidget *widget, gpointer *data) {
     #ifdef WIN32
     protocol::clear_environment();
     #endif
-    GtkWidget *error_dialog;
-    error_dialog = gtk_message_dialog_new(NULL,
-                                          GTK_DIALOG_MODAL,
-                                          GTK_MESSAGE_INFO,
-                                          GTK_BUTTONS_OK,
-                                          "上传失败！"
-    );
-    gtk_window_set_title(GTK_WINDOW (error_dialog), "错误提示");
-    gtk_dialog_run(GTK_DIALOG(error_dialog));
-    gtk_widget_destroy(error_dialog);
+    m_pMsgDlg.reset(new Gtk::MessageDialog(*this, "上传失败！", false, Gtk::MessageType::ERROR));
+
+    m_pMsgDlg->set_title("错误提示");
+    m_pMsgDlg->set_modal(true);
+    m_pMsgDlg->set_hide_on_close(true);
+    m_pMsgDlg->signal_response().connect(
+      sigc::hide(sigc::mem_fun(*m_pMsgDlg, &Gtk::Widget::hide)));
+
+    m_pMsgDlg->show();
     return;
   }
 
@@ -497,128 +505,66 @@ void upload(GtkWidget *widget, gpointer *data) {
   info.append(std::to_string(time_span.count()));
   info.append("秒。");
 
-  GtkWidget *message_dialog;
-  message_dialog = gtk_message_dialog_new(NULL,
-                           GTK_DIALOG_MODAL, GTK_MESSAGE_INFO,
-                                          GTK_BUTTONS_OK, info.c_str()
-  );
-  gtk_window_set_title(GTK_WINDOW (message_dialog), "提示信息");
-  gtk_dialog_run(GTK_DIALOG(message_dialog));
-  gtk_widget_destroy(message_dialog);
+  m_pMsgDlg.reset(new Gtk::MessageDialog(*this, info.c_str()));
+  m_pMsgDlg->set_modal(true);
+  m_pMsgDlg->set_hide_on_close(true);
+  m_pMsgDlg->set_title("提示信息");
+  m_pMsgDlg->signal_response().connect(
+    sigc::hide(sigc::mem_fun(*m_pMsgDlg, &Gtk::Widget::hide)));
+
+  m_pMsgDlg->show();
 }
 
-void activate(GtkApplication *app, gpointer user_data) {
-  GtkWidget *window;
+void SenderDialog::activate() {
+  m_threadsEntry.set_text("1");
+  m_sizeEntry.set_text("65536");
 
-  GtkWidget *grid;
+  m_fileLabel.set_halign(Gtk::Align::END);
+  m_hostLabel.set_halign(Gtk::Align::END);
+  m_portLabel.set_halign(Gtk::Align::END);
+  m_keyLabel.set_halign(Gtk::Align::END);
+  m_threadsLabel.set_halign(Gtk::Align::END);
+  m_sizeLabel.set_halign(Gtk::Align::END);
 
-  GtkWidget *ul_button;
-  GtkWidget *file_button;
+  m_grid.attach(m_fileLabel, 0, 0, 1, 1);
+  m_grid.attach_next_to(m_fileEntry, m_fileLabel, Gtk::PositionType::RIGHT);
+  m_grid.attach_next_to(m_fileButton, m_fileEntry, Gtk::PositionType::RIGHT);
+  m_grid.attach(m_hostLabel, 0, 1, 1, 1);
+  m_grid.attach(m_hostEntry, 1, 1, 2, 1);
+  m_grid.attach(m_portLabel, 0, 2, 1, 1);
+  m_grid.attach(m_portEntry, 1, 2, 2, 1);
+  m_grid.attach(m_keyLabel, 0, 3, 1, 1);
+  m_grid.attach(m_keyEntry, 1, 3, 2, 1);
+  m_grid.attach(m_threadsLabel, 0, 4, 1, 1);
+  m_grid.attach(m_threadsEntry, 1, 4, 2, 1);
+  m_grid.attach(m_sizeLabel, 0, 5, 1, 1);
+  m_grid.attach(m_sizeEntry, 1, 5, 2, 1);
+  m_grid.attach(m_separator, 0, 6, 3, 1);
+  //m_separator.set_margin_top(10);
+  //m_separator.set_margin_bottom(10);
+  m_grid.attach(m_uploadButton, 1, 7);
+  m_grid.set_column_spacing(10);
+  m_grid.set_row_spacing(10);
 
-  GtkWidget *host_label;
-  GtkWidget *port_label;
-  GtkWidget *key_label;
-  GtkWidget *file_label;
-  GtkWidget *thread_label;
-  GtkWidget *size_label;
+  m_fileButton.signal_clicked().connect(
+    sigc::mem_fun(*this, &SenderDialog::select_file));
 
-  GtkWidget *host_entry;
-  GtkWidget *port_entry;
-  GtkWidget *key_entry;
-  GtkWidget *file_entry;
-  GtkWidget *thread_entry;
-  GtkWidget *size_entry;
+  //link callback function upload to m_uploadButton
+  m_uploadButton.signal_clicked().connect(
+    sigc::mem_fun(*this, &SenderDialog::upload));
 
-  //create window object
-  window = gtk_application_window_new(app);
-  //set window title
-  gtk_window_set_title(GTK_WINDOW (window), "文件上传");
-  //set window size
-  gtk_window_set_default_size(GTK_WINDOW (window), 250, 200);
-  gtk_window_set_position(GTK_WINDOW (window), GTK_WIN_POS_CENTER);
-  gtk_window_set_resizable(GTK_WINDOW (window), FALSE);
+  // g_signal_connect_swapped(m_uploadButton,
+  //                           "clicked",
+  //                           G_CALLBACK(gtk_widget_destroy),
+  //                           window);
 
-  //create grid object
-  grid = gtk_grid_new();
-  gtk_container_set_border_width(GTK_CONTAINER(grid), 10);
-  gtk_container_add(GTK_CONTAINER(window), grid);
-
-  //create label object
-  host_label = gtk_label_new("IP地址:");
-  port_label = gtk_label_new("端口号:");
-  key_label = gtk_label_new("密钥:");
-  file_label = gtk_label_new("文件路径:");
-  thread_label = gtk_label_new("线程数:");
-  size_label = gtk_label_new("切片大小:");
-
-  //create entry object
-  host_entry = gtk_entry_new();
-  port_entry = gtk_entry_new();
-  key_entry = gtk_entry_new();
-  file_entry = gtk_entry_new();
-  thread_entry = gtk_entry_new();
-  size_entry = gtk_entry_new();
-
-  //set entry text for default value
-  gtk_entry_set_text(GTK_ENTRY(thread_entry), "1");
-  gtk_entry_set_text(GTK_ENTRY(size_entry), "65536");
-
-  //gtk_widget_set_sensitive(thread_entry, FALSE);
-
-  d.file_entry = GTK_ENTRY(file_entry);
-  d.host_entry = GTK_ENTRY(host_entry);
-  d.port_entry = GTK_ENTRY(port_entry);
-  d.key_entry = GTK_ENTRY(key_entry);
-  d.thread_entry = GTK_ENTRY(thread_entry);
-  d.size_entry = GTK_ENTRY(size_entry);
-
-  //create button object
-  ul_button = gtk_button_new_with_label("上传");
-  //link callback function upload to ul_button
-  g_signal_connect(ul_button, "clicked", G_CALLBACK(upload), (gpointer) &d);
-  g_signal_connect_swapped (ul_button,
-                            "clicked",
-                            G_CALLBACK(gtk_widget_destroy),
-                            window);
-
-  file_button = gtk_button_new_with_label("选择文件");
-  g_signal_connect(file_button,
-                   "clicked",
-                   G_CALLBACK(select_file),
-                   file_entry);
-
-  d.ul_button = ul_button;
-
-  //put entry and label into grid
-  gtk_grid_attach(GTK_GRID(grid), file_label, 0, 0, 1, 1);
-  gtk_grid_attach(GTK_GRID(grid), file_entry, 1, 0, 1, 1);
-  gtk_grid_attach(GTK_GRID(grid), file_button, 2, 0, 1, 1);
-  gtk_grid_attach(GTK_GRID(grid), host_label, 0, 1, 1, 1);
-  gtk_grid_attach(GTK_GRID(grid), host_entry, 1, 1, 2, 1);
-  gtk_grid_attach(GTK_GRID(grid), port_label, 0, 2, 1, 1);
-  gtk_grid_attach(GTK_GRID(grid), port_entry, 1, 2, 2, 1);
-  gtk_grid_attach(GTK_GRID(grid), key_label, 0, 3, 1, 1);
-  gtk_grid_attach(GTK_GRID(grid), key_entry, 1, 3, 2, 1);
-  gtk_grid_attach(GTK_GRID(grid), thread_label, 0, 4, 1, 1);
-  gtk_grid_attach(GTK_GRID(grid), thread_entry, 1, 4, 2, 1);
-  gtk_grid_attach(GTK_GRID(grid), size_label, 0, 5, 1, 1);
-  gtk_grid_attach(GTK_GRID(grid), size_entry, 1, 5, 2, 1);
-
-  gtk_grid_attach(GTK_GRID(grid), ul_button, 0, 6, 3, 1);
-
-  //show window
-  gtk_widget_show_all(window);
-
+  // Make the button the default widget
+  set_default_widget(m_fileButton);
 }
 
-int main(int argc, char **argv) {
-  GtkApplication *app;
-  int status;
+int main(int argc, char* argv[]) {
+  auto app = Gtk::Application::create("org.gtkmm.fileuploader");
 
-  app = gtk_application_new("org.gtk.fileuploader", G_APPLICATION_DEFAULT_FLAGS);
-  g_signal_connect (app, "activate", G_CALLBACK(activate), NULL);
-  status = g_application_run(G_APPLICATION (app), argc, argv);
-  g_object_unref(app);
-
-  return status;
+  // Shows the window and returns when it is closed.
+  return app->make_window_and_run<SenderDialog>(argc, argv);
 }

@@ -322,7 +322,7 @@ void transfer(Uploader *ul) {
 int main(int argc, char *argv[]) {
 
   // time start
-  std::chrono::steady_clock::time_point  now = std::chrono::steady_clock::now();
+  std::chrono::steady_clock::time_point now = std::chrono::steady_clock::now();
 
   // arguments reader
   cxxopts::Options options("FileUploader-Client", "Uploader client.");
@@ -336,11 +336,11 @@ int main(int argc, char *argv[]) {
       ("s,size", "Piece size(byte) to split file in", cxxopts::value<int>()->default_value("65535"));
 
   std::string host;
-  int port;
+  int port = 10000;
   std::string key;
   std::string file_name;
-  int thread_num;
-  int piece_size;
+  int thread_num = 1;
+  int piece_size = 65536;
   cxxopts::ParseResult result;
   const std::string prompt{"\nUsage: fileUploader -h IP -p PORT -k KEY -f PATH [-t THREADs -s PIECESIZE]"};
 
