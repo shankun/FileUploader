@@ -417,7 +417,7 @@ int main(int argc, char *argv[]) {
 
   protocol::AESEncrypter enc(key);
   protocol::AESDecrypter dec(key);
-
+  
   // main thread io_context
   boost::asio::io_context io_context;
   tcp::socket sock(io_context);
@@ -446,7 +446,7 @@ int main(int argc, char *argv[]) {
   std::chrono::duration<double> time_span =
       std::chrono::duration_cast<std::chrono::duration<double>>(t2 - now);
 
-  LOG(INFO) << "Upload finished using "<< time_span.count() << "seconds.";
+  LOG(INFO) << "Upload finished using "<< time_span.count() << " seconds.";
 
   return 0;
 }

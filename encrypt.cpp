@@ -17,22 +17,14 @@ AESEncrypter::AESEncrypter(const string &_key) {
   CryptoPP::Scrypt keygen;
   keygen.DeriveKey(key, 32, (byte *) _key.c_str(), _key.size(), salt, 32);
 
-  // constrcut aes related object
-  CryptoPP::AES::Encryption _aes(key, 32);
-  aesEncryption = _aes;
-  CryptoPP::ECB_Mode_ExternalCipher::Encryption _ecb(aesEncryption, iv);
-  ecbEncryption = _ecb;
+  aesEncryption.SetKeyWithIV(key, CryptoPP::AES::MAX_KEYLENGTH, iv, CryptoPP::AES::BLOCKSIZE);
 }
 
 AESEncrypter::AESEncrypter(AESEncrypter &a) {
   // copy the key
   memcpy(key, a.key, 33);
 
-  // make another aes related object
-  CryptoPP::AES::Encryption _aes(key, 32);
-  aesEncryption = _aes;
-  CryptoPP::ECB_Mode_ExternalCipher::Encryption _ecb(aesEncryption, iv);
-  ecbEncryption = _ecb;
+  aesEncryption.SetKeyWithIV(key, CryptoPP::AES::MAX_KEYLENGTH, iv, CryptoPP::AES::BLOCKSIZE);
 }
 
 void AESEncrypter::showkey() {
@@ -63,8 +55,9 @@ string AESEncrypter::encrypt(const string &plain) {
 
   string encrypted;
 
-  CryptoPP::StreamTransformationFilter
-      stfEncryptor(ecbEncryption, new CryptoPP::StringSink(encrypted));
+  CryptoPP::AuthenticatedEncryptionFilter stfEncryptor(
+    aesEncryption, new CryptoPP::StringSink(encrypted));
+
   // not that in encryption we need to give plain.length() + 1
   // while in decryption we not
   stfEncryptor.Put(reinterpret_cast<const unsigned char *>( plain.c_str()),
@@ -78,24 +71,17 @@ string AESEncrypter::encrypt(const string &plain) {
 
 // Implementation is very likely to Encrypter
 AESDecrypter::AESDecrypter(const string &_key) {
-
   // scrypt
   CryptoPP::Scrypt keygen;
   keygen.DeriveKey(key, 32, (byte *) _key.c_str(), _key.size(), salt, 32);
 
-  CryptoPP::AES::Decryption _aes(key, 32);
-  aesDecryption = _aes;
-  CryptoPP::ECB_Mode_ExternalCipher::Decryption _ecb(aesDecryption, iv);
-  ecbDecryption = _ecb;
+  aesDecryption.SetKeyWithIV(key, CryptoPP::AES::MAX_KEYLENGTH, iv, CryptoPP::AES::BLOCKSIZE);
 }
 
 AESDecrypter::AESDecrypter(AESDecrypter &a) {
   memcpy(key, a.key, 33);
 
-  CryptoPP::AES::Decryption _aes(key, 32);
-  aesDecryption = _aes;
-  CryptoPP::ECB_Mode_ExternalCipher::Decryption _ecb(aesDecryption, iv);
-  ecbDecryption = _ecb;
+  aesDecryption.SetKeyWithIV(key, CryptoPP::AES::MAX_KEYLENGTH, iv, CryptoPP::AES::BLOCKSIZE);
 }
 
 void AESDecrypter::showkey() {
@@ -126,8 +112,9 @@ string AESDecrypter::decrypt(const string &cipher) {
 
   string decrypted;
 
-  CryptoPP::StreamTransformationFilter
-      stfDecryptor(ecbDecryption, new CryptoPP::StringSink(decrypted));
+  CryptoPP::AuthenticatedEncryptionFilter stfDecryptor(
+    aesDecryption, new CryptoPP::StringSink(decrypted));
+
   stfDecryptor.Put(reinterpret_cast<const unsigned char *>( cipher.c_str()),
                    cipher.length());
   stfDecryptor.MessageEnd();

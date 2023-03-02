@@ -18,6 +18,7 @@
 #include "./third_party/cryptopp/filters.h"
 #include "./third_party/cryptopp/sha.h"
 #include "./third_party/cryptopp/hex.h"
+#include "./third_party/cryptopp/gcm.h"
 
 #include "./third_party/easyloggingpp/src/easylogging++.h"
 
@@ -80,9 +81,6 @@ inline string _cryptopp_Scrypt(const string &pass) {
 ///             See <https://en.wikipedia.org/wiki/Initialization_vector>
 /// \datamember CryptoPP::AES::Encryption aesEncryption
 ///             abstract aes encrypt instance
-/// \datamember CryptoPP::ECB_Mode_ExternalCipher::Encryption ecbEncryption
-///             abstract block cipher mode instance_
-///             See <https://en.wikipedia.org/wiki/Block_cipher_mode_of_operation#Electronic_Codebook_(ECB)>
 /// \todo upgrade to more modern encrypt method like
 ///       AES-128-GCM or chacha20-poly1305
 class AESEncrypter {
@@ -92,8 +90,7 @@ class AESEncrypter {
   byte iv[CryptoPP::AES::BLOCKSIZE] =
       {0x45, 0x4e, 0x43, 0x52, 0x59, 0x50, 0x54, 0x44, 0x45, 0x43, 0x52, 0x59,
        0x50, 0x54};
-  CryptoPP::AES::Encryption aesEncryption;
-  CryptoPP::ECB_Mode_ExternalCipher::Encryption ecbEncryption;
+  CryptoPP::GCM<CryptoPP::AES>::Encryption aesEncryption;
 
  public:
   /// \brief constructor
@@ -125,10 +122,8 @@ class AESEncrypter {
 ///             computed key to actually do encrypt
 /// \datamember byte iv[CryptoPP::AES::BLOCKSIZE]
 ///             Initialization Vector.
-/// \datamember CryptoPP::AES::Encryption aesEncryption
+/// \datamember GCM<AES>::Encryption aesEncryption
 ///             abstract aes encrypt instance
-/// \datamember CryptoPP::ECB_Mode_ExternalCipher::Encryption ecbEncryption
-///             abstract block cipher mode instance
 /// \todo upgrade to more modern encrypt method like
 ///       AES-128-GCM or chacha20-poly1305
 class AESDecrypter {
@@ -138,8 +133,7 @@ class AESDecrypter {
   byte iv[CryptoPP::AES::BLOCKSIZE] =
       {0x45, 0x4e, 0x43, 0x52, 0x59, 0x50, 0x54, 0x44, 0x45, 0x43, 0x52, 0x59,
        0x50, 0x54};
-  CryptoPP::AES::Decryption aesDecryption;
-  CryptoPP::ECB_Mode_ExternalCipher::Decryption ecbDecryption;
+  CryptoPP::GCM<CryptoPP::AES>::Encryption aesDecryption;
 
  public:
   /// \brief constructor

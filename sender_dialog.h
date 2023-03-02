@@ -6,6 +6,10 @@ public:
   SenderDialog();
   virtual ~SenderDialog();
 
+  void prompt_result(const Glib::ustring& title, 
+                     const Glib::ustring& content, 
+    Gtk::MessageType msg_type = Gtk::MessageType::INFO);
+
 private:
   void activate();
   void upload();

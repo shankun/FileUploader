@@ -218,7 +218,7 @@ using encrypt::AESDecrypter;
 /// \param enc encrypter object
 /// \return built encrypted raw server-hello message
 string server_hello_build(
-                          AESEncrypter &enc
+                          AESEncrypter enc
 );
 
 /// \brief @server verify server-hello message
@@ -230,7 +230,7 @@ string server_hello_build(
 ///             client using another key
 ///         2: clitent version is not the same as server. This will cause
 ///             some problem
-int server_hello_verify(AESDecrypter &dec,
+int server_hello_verify(AESDecrypter dec,
                         const string &msg
 );
 
@@ -240,7 +240,7 @@ int server_hello_verify(AESDecrypter &dec,
 /// \param session generated session string
 /// \return built encrypted raw server-hello message
 /// \throw std::invalid_argument when undefined status given
-string client_hello_build(AESEncrypter &enc,
+string client_hello_build(AESEncrypter enc,
                           const int &status,
                           const string &session
 );
@@ -256,7 +256,7 @@ string client_hello_build(AESEncrypter &enc,
 ///             some problem
 /// \throw std::invalid_argument when undefined status received
 /// \throw std::runtime_error when message received is too short
-int client_hello_verify(AESDecrypter &dec,
+int client_hello_verify(AESDecrypter dec,
                         const string &msg,
                         string &session
 );
@@ -268,7 +268,7 @@ int client_hello_verify(AESDecrypter &dec,
 /// \param file_length length of the file to be transfered
 /// \param file_path name (and place) of the file to be transfered
 /// \return built encrypted raw file negotiation message
-string file_negotiation_build(AESEncrypter &enc,
+string file_negotiation_build(AESEncrypter enc,
                               const string &session,
                               const uint32_t &piece_size,
                               const uint64_t &file_length,
@@ -286,7 +286,7 @@ string file_negotiation_build(AESEncrypter &enc,
 ///         0: ok
 ///         1: session conflict
 /// \throw std::runtime_error when message received is too short
-int file_negotiation_verify(AESDecrypter &dec,
+int file_negotiation_verify(AESDecrypter dec,
                             const string &msg,
                             const string &session,
                             uint32_t &piece_size,
@@ -301,7 +301,7 @@ int file_negotiation_verify(AESDecrypter &dec,
 ///        0: no error
 ///        1: file open failed
 /// \return built encrypted raw file negotiation message
-string file_negotiation_reply(AESEncrypter &enc,
+string file_negotiation_reply(AESEncrypter enc,
                               const string &session,
                               const int &status
 );
@@ -312,7 +312,7 @@ string file_negotiation_reply(AESEncrypter &enc,
 /// \param session generated session string
 /// \return status code from server
 /// \throw std::runtime_error if session conflict or message too short
-int file_negotiation_finish(AESDecrypter &dec,
+int file_negotiation_finish(AESDecrypter dec,
                             const string &msg,
                             const string &session
 );
@@ -321,7 +321,7 @@ int file_negotiation_finish(AESDecrypter &dec,
 /// \param enc encrypter object
 /// \param session generated session string
 /// \return built encrypted raw file transfer message
-string file_transfer_init(AESEncrypter &enc,
+string file_transfer_init(AESEncrypter enc,
                           const string &session
 );
 
@@ -330,18 +330,18 @@ string file_transfer_init(AESEncrypter &enc,
 /// \param dec decrypter object
 /// \param msg encrypted raw message received
 /// \return session of connected transfer thread
-string file_transfer_init_read(AESDecrypter &dec,
+string file_transfer_init_read(AESDecrypter dec,
                                const string &msg
 );
 
 
 /// \brief @server @unused reply the transfer info
-string file_transfer_init_reply(AESEncrypter &enc,
+string file_transfer_init_reply(AESEncrypter enc,
                                 const int &status
 );
 
 /// \brief @client @unused confirm the transfer info
-int file_transfer_init_confirm(AESDecrypter &dec,
+int file_transfer_init_confirm(AESDecrypter dec,
                                const string &msg
 );
 
@@ -352,7 +352,7 @@ int file_transfer_init_confirm(AESDecrypter &dec,
 /// \param size size of the sending piece
 /// \param piece file piece data
 /// \return built encrypted raw file transfer message
-string file_transfer_build(AESEncrypter &enc,
+string file_transfer_build(AESEncrypter enc,
                            const string &session,
                            const uint32_t &order,
                            const uint32_t &size,
@@ -368,7 +368,7 @@ string file_transfer_build(AESEncrypter &enc,
 /// \param piece file piece data
 /// \return always 0
 /// \throw std::runtime_error when message received is too short
-int file_transfer_read(AESDecrypter &dec,
+int file_transfer_read(AESDecrypter dec,
                        const string &msg,
                        const string &session,
                        uint32_t &order,
@@ -377,12 +377,12 @@ int file_transfer_read(AESDecrypter &dec,
 );
 
 /// \brief @server @unused reply client the data has received
-string file_transfer_receive(AESEncrypter &enc,
+string file_transfer_receive(AESEncrypter enc,
                              const string &session,
                              const int &status);
 
 /// \brief @client @unused check the data has received
-int file_transfer_confirm(AESDecrypter &dec,
+int file_transfer_confirm(AESDecrypter dec,
                           const string &msg,
                           const string &session);
 

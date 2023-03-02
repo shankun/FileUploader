@@ -204,14 +204,14 @@ string build_msg_transfer(const string &raw_msg) {
  * | MAGIC_HEADER 2 | [ Encrypted [ MAGIC_HEADER 2 | VERSION 4] ]
  */
 
-string server_hello_build(AESEncrypter &enc) {
+string server_hello_build(AESEncrypter enc) {
   LOG(DEBUG) << "server_hello_build";
   string enc_str = MAGIC_HEADER;
   enc_str += VERSION;
   return enc.encrypt(enc_str);
 }
 
-int server_hello_verify(AESDecrypter &dec, const string &msg) {
+int server_hello_verify(AESDecrypter dec, const string &msg) {
   LOG(DEBUG) << "server_hello_verify";
   try {
     string dec_str = dec.decrypt(msg);
@@ -244,7 +244,7 @@ int server_hello_verify(AESDecrypter &dec, const string &msg) {
  * Where SESSION is a random 32 bytes data for further file transfer
  */
 
-string client_hello_build(AESEncrypter &enc,
+string client_hello_build(AESEncrypter enc,
                           const int &status,
                           const string &session) {
   LOG(DEBUG) << "client_hello_build";
@@ -266,7 +266,7 @@ string client_hello_build(AESEncrypter &enc,
   }
 }
 
-int client_hello_verify(AESDecrypter &dec, const string &msg, string &session) {
+int client_hello_verify(AESDecrypter dec, const string &msg, string &session) {
   LOG(DEBUG) << "client_hello_verify";
   try {
     if (msg[0] == 0x00) {
@@ -296,7 +296,7 @@ int client_hello_verify(AESDecrypter &dec, const string &msg, string &session) {
  */
 
 string
-file_negotiation_build(AESEncrypter &enc,
+file_negotiation_build(AESEncrypter enc,
                        const string &session,
                        const uint32_t &piece_size,
                        const uint64_t &file_length,
@@ -309,7 +309,7 @@ file_negotiation_build(AESEncrypter &enc,
   return enc.encrypt(enc_str);
 }
 
-int file_negotiation_verify(AESDecrypter &dec,
+int file_negotiation_verify(AESDecrypter dec,
                             const string &msg,
                             const string &session,
                             uint32_t &piece_size,
@@ -338,7 +338,7 @@ int file_negotiation_verify(AESDecrypter &dec,
  * | MAGIC_HEADER 2 | [ Encrypted [ SESSION 32 | 0 1 ]
  */
 
-string file_negotiation_reply(AESEncrypter &enc,
+string file_negotiation_reply(AESEncrypter enc,
                               const string &session,
                               const int &status) {
   LOG(DEBUG) << "file_negotiation_reply";
@@ -347,7 +347,7 @@ string file_negotiation_reply(AESEncrypter &enc,
   return enc.encrypt(enc_str);
 }
 
-int file_negotiation_finish(AESDecrypter &dec,
+int file_negotiation_finish(AESDecrypter dec,
                             const string &msg,
                             const string &session) {
   LOG(DEBUG) << "file_negotiation_finish";
@@ -370,16 +370,17 @@ int file_negotiation_finish(AESDecrypter &dec,
  *  | MAGIC_HEADER_TRANSFER 2 | [ Encrypted [ SESSION 32 | FILE_PIECE_ORDER 32 | FILE_PIECE PIECE_SIZE ] ]
  */
 
-string file_transfer_init(AESEncrypter &enc, const string &session) {
+string file_transfer_init(AESEncrypter enc, const string &session) {
   LOG(DEBUG) << "file_transfer_init";
 //  string enc_str(16, char(0xFE));
 //  enc_str += session;
   return enc.encrypt(session);
 }
 
-string file_transfer_init_read(AESDecrypter &dec, const string &msg) {
+string file_transfer_init_read(AESDecrypter dec, const string &msg) {
   LOG(DEBUG) << "file_transfer_init_read";
   try {
+    LOG(DEBUG) << "OMGDBG - " << msg;
     auto dec_str = dec.decrypt(msg);
     return dec_str.substr(0, 32);
   }
@@ -388,19 +389,19 @@ string file_transfer_init_read(AESDecrypter &dec, const string &msg) {
   }
 }
 
-string file_transfer_init_reply(AESEncrypter &enc, const int &status) {
+string file_transfer_init_reply(AESEncrypter enc, const int &status) {
   LOG(DEBUG) << "file_transfer_init_reply";
   string enc_str(16, char(0xFF));
   enc_str += char(status);
   return enc.encrypt(enc_str);
 }
 
-int file_transfer_init_confirm(AESDecrypter &dec, const string &msg) {
+int file_transfer_init_confirm(AESDecrypter dec, const string &msg) {
   LOG(DEBUG) << "file_transfer_init_confirm";
   return int(dec.decrypt(msg)[16]);
 }
 
-string file_transfer_build(AESEncrypter &enc,
+string file_transfer_build(AESEncrypter enc,
                            const string &session,
                            const uint32_t &order,
                            const uint32_t &size,
@@ -420,16 +421,17 @@ string file_transfer_build(AESEncrypter &enc,
   return enc.encrypt(enc_str);
 }
 
-int file_transfer_read(AESDecrypter &dec,
+int file_transfer_read(AESDecrypter dec,
                        const string &msg,
                        const string &session,
                        uint32_t &order,
                        uint32_t &size,
                        string &piece) {
-//  LOG(DEBUG) << "file_transfer_read";
+  LOG(DEBUG) << "file_transfer_read , " << msg;
   try {
     string dec_str = dec.decrypt(msg);
     if (dec_str.substr(0, 32) != session) {
+      LOG(DEBUG) << dec_str.length() << " = " << session.length() <<" , compare " << dec_str.substr(0, 32) << " and " << session.c_str();
       throw std::runtime_error("file_transfer_read - Server session conflict.");
     }
     order = stoul(dec_str.substr(32, 8), 0, 16);
@@ -448,7 +450,7 @@ int file_transfer_read(AESDecrypter &dec,
   }
 }
 
-string file_transfer_receive(AESEncrypter &enc,
+string file_transfer_receive(AESEncrypter enc,
                              const string &session,
                              const int &status) {
   LOG(DEBUG) << "file_transfer_receive";
@@ -458,7 +460,7 @@ string file_transfer_receive(AESEncrypter &enc,
   return enc.encrypt(enc_str);
 }
 
-int file_transfer_confirm(AESDecrypter &dec,
+int file_transfer_confirm(AESDecrypter dec,
                           const string &msg,
                           const string &session) {
   LOG(DEBUG) << "file_transfer_confirm";

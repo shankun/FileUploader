@@ -402,9 +402,9 @@ void SenderDialog::upload() {
   //time start
   std::chrono::steady_clock::time_point now = std::chrono::steady_clock::now();
 
-  std::string filename(m_fileEntry.get_text().c_str());
-  std::string host(m_hostEntry.get_text().c_str());
-  std::string key(m_keyEntry.get_text().c_str());
+  std::string filename(m_fileEntry.get_text());
+  std::string host(m_hostEntry.get_text());
+  std::string key(m_keyEntry.get_text());
   int port = std::strtol(m_portEntry.get_text().c_str(), nullptr, 10);
   int thread = std::strtol(m_threadsEntry.get_text().c_str(), nullptr, 10);
   int size = std::strtol(m_sizeEntry.get_text().c_str(), nullptr, 10);
@@ -414,34 +414,23 @@ void SenderDialog::upload() {
       );
 
   if (filename.empty() or host.empty() or key.empty()) {
-    m_pMsgDlg.reset(new Gtk::MessageDialog(*this, "文件路径、IP地址或密钥不能为空！"));
-    m_pMsgDlg->set_modal(true);
-    m_pMsgDlg->set_title("错误提示");
-    m_pMsgDlg->show();
+    prompt_result("参数错误", "文件路径、IP地址或密钥不能为空！");
     return;
   }
 
   if (port == 0 or thread == 0 or size == 0) {
-    m_pMsgDlg.reset(new Gtk::MessageDialog(*this, "端口号、线程数和切片大小必须是正整数！"));
-    m_pMsgDlg->set_modal(true);
-    m_pMsgDlg->set_title("参数错误");
-    m_pMsgDlg->show();
+    prompt_result("参数错误", "端口号、线程数和切片大小必须是正整数！");
     return;
   }
 
   if (!std::regex_match(host,ip_regex)) {
-    m_pMsgDlg.reset(new Gtk::MessageDialog(*this, "IP地址格式错误！"));
-    m_pMsgDlg->set_modal(true);
-    m_pMsgDlg->set_title("参数错误");
-    m_pMsgDlg->show();
+    LOG(DEBUG) << host;
+    prompt_result("参数错误", "IP地址格式错误！");
     return;
   }
 
   if (port > 65536 or port < 0) {
-     m_pMsgDlg.reset(new Gtk::MessageDialog(*this, "端口号必须在0到65536之间！"));
-    m_pMsgDlg->set_modal(true);
-    m_pMsgDlg->set_title("参数错误");
-    m_pMsgDlg->show();
+    prompt_result("参数错误", "端口号必须在0到65536之间！");
     return;
   }
 
@@ -484,15 +473,7 @@ void SenderDialog::upload() {
     #ifdef WIN32
     protocol::clear_environment();
     #endif
-    m_pMsgDlg.reset(new Gtk::MessageDialog(*this, "上传失败！", false, Gtk::MessageType::ERROR));
-
-    m_pMsgDlg->set_title("错误提示");
-    m_pMsgDlg->set_modal(true);
-    m_pMsgDlg->set_hide_on_close(true);
-    m_pMsgDlg->signal_response().connect(
-      sigc::hide(sigc::mem_fun(*m_pMsgDlg, &Gtk::Widget::hide)));
-
-    m_pMsgDlg->show();
+    prompt_result("错误信息", "上传失败！", Gtk::MessageType::ERROR);
     return;
   }
 
@@ -504,13 +485,19 @@ void SenderDialog::upload() {
   std::string info = "上传成功，用时";
   info.append(std::to_string(time_span.count()));
   info.append("秒。");
+  prompt_result("提示信息", info.c_str());
+}
 
-  m_pMsgDlg.reset(new Gtk::MessageDialog(*this, info.c_str()));
+void SenderDialog::prompt_result(const Glib::ustring& title, const Glib::ustring& content, 
+                                 Gtk::MessageType msg_type)
+{
+  m_pMsgDlg.reset(new Gtk::MessageDialog(*this, content, false, msg_type));
   m_pMsgDlg->set_modal(true);
   m_pMsgDlg->set_hide_on_close(true);
-  m_pMsgDlg->set_title("提示信息");
+  m_pMsgDlg->set_title(title);
+
   m_pMsgDlg->signal_response().connect(
-    sigc::hide(sigc::mem_fun(*m_pMsgDlg, &Gtk::Widget::hide)));
+       sigc::hide(sigc::mem_fun(*m_pMsgDlg, &Gtk::Widget::hide)));
 
   m_pMsgDlg->show();
 }
@@ -540,8 +527,6 @@ void SenderDialog::activate() {
   m_grid.attach(m_sizeLabel, 0, 5, 1, 1);
   m_grid.attach(m_sizeEntry, 1, 5, 2, 1);
   m_grid.attach(m_separator, 0, 6, 3, 1);
-  //m_separator.set_margin_top(10);
-  //m_separator.set_margin_bottom(10);
   m_grid.attach(m_uploadButton, 1, 7);
   m_grid.set_column_spacing(10);
   m_grid.set_row_spacing(10);

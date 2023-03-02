@@ -125,6 +125,7 @@ class Thread : public std::enable_shared_from_this<Thread> {
     uint32_t length = protocol::read_msg_transfer_len(_t);
     _tmp.clear();
     _tmp.resize(length);
+    LOG(DEBUG) << "OMGDBG - msg size = " << length;
 
     auto self(shared_from_this());
     async_read(socket_, buffer(_tmp), boost::asio::transfer_exactly(length),
@@ -509,6 +510,7 @@ class Acceptor : public std::enable_shared_from_this<Acceptor> {
                 // thread handler (attach to session)
                 LOG(INFO) << "Receive new client thread.";
                 children[_sess]->attach_thread(std::move(socket));
+                LOG(INFO) << "OMGDBG - attached session";
               } else {
                 LOG(INFO) << "Receive thread but not connected client.";
                 socket.close();
@@ -612,7 +614,10 @@ int main(int argc, char *argv[]) {
 
   protocol::AESEncrypter enc(key);
   protocol::AESDecrypter dec(key);
-
+  enc.showkey();
+    enc.showiv();
+    dec.showkey();
+    dec.showiv();
   boost::asio::io_context io_context;
   boost::asio::steady_timer t(io_context, sleep_time);
 
