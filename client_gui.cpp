@@ -3,14 +3,13 @@
 //
 
 #include <boost/asio.hpp>
+#include <iostream>
 #include <string>
 #include <functional>
 #include <thread>
 #include <chrono>
-#include <iostream>
 #include "./third_party/cxxopts/include/cxxopts.hpp"
 #include "sender_dialog.h"
-#include <gtkmm/application.h>
 #include "file.h"
 #include "protocol.h"
 
@@ -380,7 +379,7 @@ void SenderDialog::on_file_dialog_response(int response_id, Gtk::FileChooserDial
     case Gtk::ResponseType::OK:
     {
       // Notice that this is a std::string, not a Glib::ustring.
-      m_fileEntry.set_text(dialog->get_file()->get_path().c_str());
+      m_fileEntry.set_text(dialog->get_file()->get_path());
       break;
     }
     case Gtk::ResponseType::CANCEL:
@@ -424,7 +423,6 @@ void SenderDialog::upload() {
   }
 
   if (!std::regex_match(host,ip_regex)) {
-    LOG(DEBUG) << host;
     prompt_result("参数错误", "IP地址格式错误！");
     return;
   }
@@ -548,6 +546,8 @@ void SenderDialog::activate() {
 }
 
 int main(int argc, char* argv[]) {
+  // iostream与当前环境中的locale无关
+  Glib::set_init_to_users_preferred_locale(false);
   auto app = Gtk::Application::create("org.gtkmm.fileuploader");
 
   // Shows the window and returns when it is closed.

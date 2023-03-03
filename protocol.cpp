@@ -380,7 +380,6 @@ string file_transfer_init(AESEncrypter enc, const string &session) {
 string file_transfer_init_read(AESDecrypter dec, const string &msg) {
   LOG(DEBUG) << "file_transfer_init_read";
   try {
-    LOG(DEBUG) << "OMGDBG - " << msg;
     auto dec_str = dec.decrypt(msg);
     return dec_str.substr(0, 32);
   }
@@ -427,11 +426,10 @@ int file_transfer_read(AESDecrypter dec,
                        uint32_t &order,
                        uint32_t &size,
                        string &piece) {
-  LOG(DEBUG) << "file_transfer_read , " << msg;
+  LOG(DEBUG) << "file_transfer_read";
   try {
     string dec_str = dec.decrypt(msg);
     if (dec_str.substr(0, 32) != session) {
-      LOG(DEBUG) << dec_str.length() << " = " << session.length() <<" , compare " << dec_str.substr(0, 32) << " and " << session.c_str();
       throw std::runtime_error("file_transfer_read - Server session conflict.");
     }
     order = stoul(dec_str.substr(32, 8), 0, 16);
