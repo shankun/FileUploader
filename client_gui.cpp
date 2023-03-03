@@ -349,26 +349,28 @@ SenderDialog::~SenderDialog()
 }
 
 /// \brief file_button's callback function, select file
+// 当gtkmm 升到 4.10，换用Gtk::FileDialog
 void SenderDialog::select_file() {
-  auto dialog = new Gtk::FileChooserDialog("选择文件",
-          Gtk::FileChooser::Action::OPEN);
-  dialog->set_transient_for(*this);
-  dialog->set_modal(true);
-  dialog->signal_response().connect(sigc::bind(
-    sigc::mem_fun(*this, &SenderDialog::on_file_dialog_response), dialog));
+  if (!m_pFileDlg) {
+    m_pFileDlg = std::make_unique<Gtk::FileChooserDialog>(
+            "选择文件", Gtk::FileChooser::Action::OPEN);
+    m_pFileDlg->set_transient_for(*this);
+    m_pFileDlg->set_modal(true);
+    m_pFileDlg->signal_response().connect(sigc::bind(
+      sigc::mem_fun(*this, &SenderDialog::on_file_dialog_response), m_pFileDlg.get()));
 
-  //Add response buttons to the dialog:
-  dialog->add_button("取消", Gtk::ResponseType::CANCEL);
-  dialog->add_button("打开", Gtk::ResponseType::OK);
+    //Add response buttons to the dialog:
+    m_pFileDlg->add_button("取消", Gtk::ResponseType::CANCEL);
+    m_pFileDlg->add_button("打开", Gtk::ResponseType::OK);
 
-  //Add filters, so that only certain file types can be selected:
-  auto filter_any = Gtk::FileFilter::create();
-  filter_any->set_name("所有文件");
-  filter_any->add_pattern("*");
-  dialog->add_filter(filter_any);
-
+    //Add filters, so that only certain file types can be selected:
+    auto filter_any = Gtk::FileFilter::create();
+    filter_any->set_name("所有文件");
+    filter_any->add_pattern("*");
+    m_pFileDlg->add_filter(filter_any);
+  }
   //Show the dialog and wait for a user response:
-  dialog->show();
+  m_pFileDlg->set_visible();
 }
 
 void SenderDialog::on_file_dialog_response(int response_id, Gtk::FileChooserDialog* dialog)
@@ -383,8 +385,9 @@ void SenderDialog::on_file_dialog_response(int response_id, Gtk::FileChooserDial
       break;
     }
     case Gtk::ResponseType::CANCEL:
+    case Gtk::ResponseType::CLOSE:
     {
-      std::cout << "Cancel clicked." << std::endl;
+      std::cout << "未选择要上传的文件" << std::endl;
       break;
     }
     default:
@@ -393,7 +396,7 @@ void SenderDialog::on_file_dialog_response(int response_id, Gtk::FileChooserDial
       break;
     }
   }
-  delete dialog;
+  m_pFileDlg->set_visible(false);
 }
 
 /// \brief m_uploadButton's callback function, do upload

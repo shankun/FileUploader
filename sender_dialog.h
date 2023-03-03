@@ -4,7 +4,7 @@ class SenderDialog : public Gtk::Window
 {
 public:
   SenderDialog();
-  virtual ~SenderDialog();
+  ~SenderDialog() override;
 
   void prompt_result(const Glib::ustring& title, 
                      const Glib::ustring& content, 
@@ -37,4 +37,5 @@ private:
   Gtk::Separator m_separator;
 
   std::unique_ptr<Gtk::MessageDialog> m_pMsgDlg;
+  std::unique_ptr<Gtk::FileChooserDialog> m_pFileDlg;
 };
