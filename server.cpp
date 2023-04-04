@@ -336,7 +336,7 @@ class Session : public std::enable_shared_from_this<Session> {
     try {
       std::filesystem::path filePath{path};
       std::filesystem::path fullPath{destination};
-      fullPath /= filePath.filename();
+      fullPath /= filePath;
       _f = std::make_shared<file::file_writer>(fullPath.string(), file_s);
       result = (int) !(_f->ok);
     }

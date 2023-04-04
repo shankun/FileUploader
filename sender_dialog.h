@@ -16,7 +16,9 @@ private:
 
   // Signal handlers:
   void select_file();
-  void on_file_dialog_response(int response_id, Gtk::FileChooserDialog* dialog);
+
+  void on_file_dialog_finish(const Glib::RefPtr<Gio::AsyncResult>& result,
+    const Glib::RefPtr<Gtk::FileDialog>& sf_dialog);
 
   // Child widgets:
   Gtk::Grid m_grid;
@@ -36,6 +38,6 @@ private:
   Gtk::Entry m_sizeEntry;
   Gtk::Separator m_separator;
 
-  std::unique_ptr<Gtk::MessageDialog> m_pMsgDlg;
-  std::unique_ptr<Gtk::FileChooserDialog> m_pFileDlg;
+  Glib::RefPtr<Gtk::AlertDialog> m_pMsgDlg;
+  Glib::RefPtr<Gtk::FileDialog> m_pFileDlg;
 };

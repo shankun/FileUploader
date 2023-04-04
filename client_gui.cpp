@@ -349,54 +349,52 @@ SenderDialog::~SenderDialog()
 }
 
 /// \brief file_button's callback function, select file
-// 当gtkmm 升到 4.10，换用Gtk::FileDialog
 void SenderDialog::select_file() {
-  if (!m_pFileDlg) {
-    m_pFileDlg = std::make_unique<Gtk::FileChooserDialog>(
-            "选择文件", Gtk::FileChooser::Action::OPEN);
-    m_pFileDlg->set_transient_for(*this);
+  if (!m_pFileDlg)
+  { //Show the dialog and wait for a user response:
+    m_pFileDlg = Gtk::FileDialog::create();
+    m_pFileDlg->set_title("选择文件");
     m_pFileDlg->set_modal(true);
-    m_pFileDlg->signal_response().connect(sigc::bind(
-      sigc::mem_fun(*this, &SenderDialog::on_file_dialog_response), m_pFileDlg.get()));
+    m_pFileDlg->set_accept_label("打开");
 
-    //Add response buttons to the dialog:
-    m_pFileDlg->add_button("取消", Gtk::ResponseType::CANCEL);
-    m_pFileDlg->add_button("打开", Gtk::ResponseType::OK);
-
-    //Add filters, so that only certain file types can be selected:
+    // Add filters, so that only certain file types can be selected:
+    auto filters = Gio::ListStore<Gtk::FileFilter>::create();
     auto filter_any = Gtk::FileFilter::create();
     filter_any->set_name("所有文件");
     filter_any->add_pattern("*");
-    m_pFileDlg->add_filter(filter_any);
+    filters->append(filter_any);
+    m_pFileDlg->set_filters(filters);
   }
-  //Show the dialog and wait for a user response:
-  m_pFileDlg->set_visible();
+
+  // Show the dialog and wait for a user response:
+  m_pFileDlg->open(*this, sigc::bind(sigc::mem_fun(
+    *this, &SenderDialog::on_file_dialog_finish), m_pFileDlg));
 }
 
-void SenderDialog::on_file_dialog_response(int response_id, Gtk::FileChooserDialog* dialog)
+void SenderDialog::on_file_dialog_finish(const Glib::RefPtr<Gio::AsyncResult>& result,
+    const Glib::RefPtr<Gtk::FileDialog>& sf_dialog)
 {
-  //Handle the response:
-  switch (response_id)
+  // Handle the response:
+  try
   {
-    case Gtk::ResponseType::OK:
-    {
-      // Notice that this is a std::string, not a Glib::ustring.
-      m_fileEntry.set_text(dialog->get_file()->get_path());
-      break;
-    }
-    case Gtk::ResponseType::CANCEL:
-    case Gtk::ResponseType::CLOSE:
-    {
-      std::cout << "未选择要上传的文件" << std::endl;
-      break;
-    }
-    default:
-    {
-      std::cout << "Unexpected button clicked." << std::endl;
-      break;
-    }
+    // if click 'cancel' button, will crash here.
+    auto file = sf_dialog->open_finish(result);
+    // Notice that this is a std::string, not a Glib::ustring.
+    m_fileEntry.set_text(file->get_path());
   }
-  m_pFileDlg->set_visible(false);
+  catch (const Gtk::DialogError& err)
+  {
+    // Can be thrown by dialog->open_finish(result).
+    std::cout << "未选择要上传的文件 " << err.what() << std::endl;
+  }
+  catch (const Glib::Error& err)
+  {
+    std::cout << "Unexpected exception. " << err.what() << std::endl;
+  }
+  catch (...)
+  {
+    std::cout << "cancelled. " << std::endl;
+  }
 }
 
 /// \brief m_uploadButton's callback function, do upload
@@ -492,15 +490,12 @@ void SenderDialog::upload() {
 void SenderDialog::prompt_result(const Glib::ustring& title, const Glib::ustring& content, 
                                  Gtk::MessageType msg_type)
 {
-  m_pMsgDlg.reset(new Gtk::MessageDialog(*this, content, false, msg_type));
-  m_pMsgDlg->set_modal(true);
-  m_pMsgDlg->set_hide_on_close(true);
-  m_pMsgDlg->set_title(title);
+  if (!m_pMsgDlg)
+    m_pMsgDlg = Gtk::AlertDialog::create();
 
-  m_pMsgDlg->signal_response().connect(
-       sigc::hide(sigc::mem_fun(*m_pMsgDlg, &Gtk::Widget::hide)));
-
-  m_pMsgDlg->show();
+  m_pMsgDlg->set_message(title);
+  m_pMsgDlg->set_detail(content);
+  m_pMsgDlg->show(*this);
 }
 
 void SenderDialog::activate() {
