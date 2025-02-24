@@ -604,6 +604,9 @@ int main(int argc, char *argv[]) {
   defaultConf.setToDefault();
   defaultConf.setGlobally(
       el::ConfigurationType::Format, "[%datetime - %level]: %msg");
+      
+  defaultConf.set(el::Level::Trace, el::ConfigurationType::Enabled, "false");
+  defaultConf.set(el::Level::Debug, el::ConfigurationType::Enabled, "false");
   el::Loggers::reconfigureLogger("default", defaultConf);
 
   #ifdef WIN32
