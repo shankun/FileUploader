@@ -238,7 +238,7 @@ void transfer(Uploader *ul) {
 
   // connect to the server and configure socket
   boost::asio::ip::tcp::endpoint
-      ep(boost::asio::ip::address::from_string(ul->ip), ul->port);
+      ep(boost::asio::ip::make_address(ul->ip), ul->port);
 
   sock.connect(ep);
 
@@ -424,7 +424,7 @@ int main(int argc, char *argv[]) {
   tcp::socket sock(io_context);
 
   boost::asio::ip::tcp::endpoint
-      ep(boost::asio::ip::address::from_string(host), port);
+      ep(boost::asio::ip::make_address(host), port);
 
   sock.connect(ep);
 
