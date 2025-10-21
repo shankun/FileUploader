@@ -2,9 +2,6 @@ cmake_minimum_required(VERSION 3.19)
 project(FileUploader)
 
 set(CMAKE_CXX_STANDARD 17)
-FIND_PACKAGE(Boost COMPONENTS random system REQUIRED)
-set(Boost_USE_STATIC_LIBS ON)
-include_directories(${Boost_INCLUDE_DIRS})
 
 find_package(PkgConfig REQUIRED)
 pkg_check_modules(GTKMM REQUIRED gtkmm-4.0)
@@ -61,7 +58,6 @@ if(MINGW)
     set(NEED_LIBS
             ws2_32.lib
 #            stdc++fs
-            #boost_random-mt
             ${Boost_LIBRARIES}
             ${cryptopplib}
             )
@@ -70,8 +66,6 @@ elseif(${CMAKE_SYSTEM_NAME} MATCHES "Linux")
     set(NEED_LIBS
             stdc++fs
             pthread
-            #boost_random
-            #boost_system
             ${Boost_LIBRARIES}
             ${cryptopplib}
             )
@@ -80,21 +74,9 @@ elseif(${CMAKE_SYSTEM_NAME} MATCHES "Linux")
 
 #elseif(MSVC)
 #    message("Detect MSVC Environment")
-#    SET(BOOST_ROOT "D:/Windows Kits/boost4vs")
-#
-#    SET(Boost_FIND_REQUIRED TRUE)
-#    SET(Boost_FIND_QUIETLY TRUE)
-#    SET(Boost_DEBUG FALSE)
-#    SET(Boost_USE_MULTITHREADED TRUE)
-#    SET(Boost_USE_STATIC_LIBS TRUE)
-#
-#    FIND_PACKAGE(Boost COMPONENTS random REQUIRED)
-#    INCLUDE_DIRECTORIES(${Boost_INCLUDE_DIRS})
-#    LINK_DIRECTORIES(${Boost_LIBRARY_DIRS})
 #
 #    set(NEED_LIBS
 #            ws2_32.lib
-#            ${Boost_LIBRARY_DIRS}/libboost_random-vc142-mt-x64-1_70.lib
 #            ${CMAKE_SOURCE_DIR}/third_party/cryptopp/.prebuilt/cryptlib-release.lib
 #            )
 

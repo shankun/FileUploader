@@ -16,11 +16,7 @@
 #include <exception>
 #include <charconv>
 #include <iomanip>
-
-#include <boost/random/random_device.hpp>
-#include <boost/random/uniform_int_distribution.hpp>
-
-#include <boost/io/ios_state.hpp>
+#include <random>
 
 #include "encrypt.h"
 
@@ -107,18 +103,18 @@ struct OtherSideError : public std::runtime_error {
 ///         randomly during negotiation. It is used to identify which
 ///         file the new connected file transfer thread belongs to,
 ///          and attach the right file pointer to the thread handle object.
-/// \datamember boost::random::random_device rng
+/// \datamember std::random_device rng
 ///             random generator
-/// \datamember boost::random::uniform_int_distribution<> index_dist
+/// \datamember std::uniform_int_distribution<> index_dist
 ///             generator distribution
 class Randomsession {
  private:
-  boost::random::random_device rng;
-  boost::random::uniform_int_distribution<> index_dist;
+  std::random_device rng;
+  std::uniform_int_distribution<> index_dist;
  public:
   /// \brief constructor
   Randomsession() {
-    index_dist = boost::random::uniform_int_distribution<>(0, 255);
+    index_dist = std::uniform_int_distribution<>(0, 255);
   }
   /// \brief session generator
   /// \param length length of the session to generate
